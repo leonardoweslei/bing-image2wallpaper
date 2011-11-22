@@ -66,11 +66,27 @@ while :; do
 			cd $OLDPWD;
 		fi
 		echo -e "Removendo background...\n";
-		gsettings set org.gnome.desktop.background picture-uri "";
+		#Gnome 2.x
 		#gconftool --unset /desktop/gnome/background/picture_filename;
-		echo -e "Setando background...\n";
 		#gconftool --type string --set /desktop/gnome/background/picture_filename $urld;
-		gsettings set org.gnome.desktop.background picture-uri "file://"$urld;
+		#Gnome 3
+		if [ "$DESKTOP_SESSION"=="ubuntu-2d" ] || [ "$DESKTOP_SESSION"=="ubuntu" ] || [ "$DESKTOP_SESSION"=="gnome-shell" ] || [ "$DESKTOP_SESSION"=="gnome-classic" ] || [ "$DESKTOP_SESSION"=="gnome-fallback" ] || [ "$DESKTOP_SESSION"=="gnome-classic" ] ; then
+			gsettings set org.gnome.desktop.background picture-uri "";
+			echo -e "Setando background...\n";
+			gsettings set org.gnome.desktop.background picture-uri "file://"$urld;
+		fi
+		#xfce
+		if [ "$DESKTOP_SESSION"=="xfce" ] || [ "$DESKTOP_SESSION"=="xubuntu" ] ; then
+			xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/image-path -s "/dev/null"
+			echo -e "Setando background...\n";
+			xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/image-path -s $urld
+		fi
+		#kde
+		#dcop kdesktop KBackgroundIface setWallpaper "/dev/null" 4
+		#dcop kdesktop KBackgroundIface setWallpaper "$urld" 4
+		#fluxbox
+		#/usr/bin/fbsetroot -solid black
+		#fbsetbg -f $urld
 		#sleep $((60*15));
 		sleep 1;
 	fi
