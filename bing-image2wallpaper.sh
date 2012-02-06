@@ -98,13 +98,14 @@ function background()
 	return 0;
 }
 mk=~/Dropbox/projetos/marcadagua.jpg;
-dir=~/bing_images;
+dir=~/images_downloaded/;
+service="bing";
 echo -e "Iniciando sistema...\n";
 data=$(date +"%Y%m%d");
 atoi $(date +"%H");
 hora=$?;
 if [ ! -e $dir ]; then
-	mkdir $dir;
+	mkdir -p $dir;
 fi
 urld=$dir/$data.jpg;
 urld2=$dir/$data"2.jpg";
@@ -132,12 +133,22 @@ while :; do
 		urld2=$dir/$data"2.jpg";
 		if [ ! -e $urld ] ; then
 			temp=$(tempfile);
-			echo -e "Baixando imagem do bing...\n";
-			wget bing.com -O $temp >/dev/null;
-			img=$(cat $temp | sed "s/[;,:']/\n/g" | egrep "(.*)az(.*)\.(png|jpg|jpeg)$");
-			url="www.bing.com$img";
+			if [ $service == "bing" ] ; then
+				echo -e "Baixando imagem do bing...\n";
+				wget bing.com -O $temp >/dev/null;
+				img=$(cat $temp | sed "s/[;,:']/\n/g" | egrep "(.*)az(.*)\.(png|jpg|jpeg)$");
+				url="www.bing.com$img";
+			else
+				echo -e "Baixando imagem do flickr...\n";
+				wget www.flickr.com/explore/ -O $temp >/dev/null;
+				img=$(cat $temp | sed "s/[\n\t]//g" | egrep "photo_container(.*)span" | awk -F'"' 'NR>1&&$0=$2' RS='href=');
+				user=$(echo $img | cut -d "/" -f3);
+				img_id=$(echo $img | cut -d "/" -f4);
+				wget "www.flickr.com/photos/"$user"/"$img_id"/sizes/l/in/photostream/" -O $temp >/dev/null;
+				img=$(cat $temp | sed "s/[\n\t]//g" | sed -n '/'$img_id'/s/.*src="\(.*\)".*/\1/p');
+				url=$(echo $img | cut -d " " -f1);
+			fi
 			wget $url -O $urld >/dev/null;
-			cd $OLDPWD;
 		fi
 		sleep 2;
 		wtmk=$(which composite);
@@ -155,6 +166,7 @@ while :; do
 		background "set" $urld2;
 		sleep 10;
 	else
+		echo -e "background OK\nVoltando em 1h...\n";
 		sleep $((60*60));
 	fi
 done
