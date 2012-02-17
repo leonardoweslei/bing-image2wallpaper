@@ -20,6 +20,9 @@ function background()
 			return 1;
 		elif [ "$DESKTOP_SESSION" == "kde-plasma" ]; then
 			kwriteconfig --file plasma-desktop-appletsrc --group Containments --group 1 --group Wallpaper --group image --key wallpaper $2;
+			kquitapp plasma-desktop;
+			sleep 2;
+			plasma-desktop &
 			return 1;
 		elif [ "$DESKTOP_SESSION" == "xfce" ] || [ "$DESKTOP_SESSION" == "xubuntu" ] ; then
 			xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/image-path -s $2;
@@ -73,6 +76,9 @@ function background()
 		if [ "$DESKTOP_SESSION" == "ubuntu-2d" ] || [ "$DESKTOP_SESSION" == "ubuntu" ] || [ "$DESKTOP_SESSION" == "gnome-shell" ] || [ "$DESKTOP_SESSION" == "gnome-classic" ] || [ "$DESKTOP_SESSION" == "gnome-fallback" ] || [ "$DESKTOP_SESSION" == "gnome-classic" ] ; then
 			gsettings reset org.gnome.desktop.background picture-uri;
 			return 1;
+		elif [ "$DESKTOP_SESSION" == "kde-plasma" ]; then
+			kwriteconfig --file plasma-desktop-appletsrc --group Containments --group 1 --group Wallpaper --group image --key wallpaper "";
+			return 1;
 		elif [ "$DESKTOP_SESSION" == "xfce" ] || [ "$DESKTOP_SESSION" == "xubuntu" ] ; then
 			xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/image-path -r;
 			return 1;
@@ -99,6 +105,13 @@ function background()
 }
 mk=~/Dropbox/projetos/marcadagua.jpg;
 dir=~/images_downloaded/;
+#Bing - bing.com, bing.co.jp
+#NASA - http://apod.nasa.gov
+#Earth Science - http://epod.usra.edu
+#National Geographic - http://photography.nationalgeographic.com/photography/photo-of-the-day
+#Nature - http://www.naturepicoftheday.com
+#Flickr - http://www.flickr.com/explore/
+
 service="bing";
 echo -e "Iniciando sistema...\n";
 data=$(date +"%Y%m%d");
@@ -114,16 +127,12 @@ while :; do
 	atoi $(date +"%H");
 	horanow=$?;
 	bgactive=$(background "get");
-	if [ -e $urld ] || [ "$(du -sh $urld | cut -f1)" == "" ] || [ "$(file $urld | cut -d ' ' -f3)" != "image" ]; then
-		tam=$(du -sh $urld | cut  -f1);
-		tam=${tam%%[!0-9]*};
-		if [ "$tam" == "" ]; then
-			echo -e "Apagando imagem vazia...\n";
-			rm -rf $urld;
-			sleep 0;
-		fi
+	#echo -e $bgactive " " $urld "\n";
+	if [ "$(du -sh $urld2 | cut -f1)" == "" ] || [ "$(file $urld2 | cut -d ' ' -f3)" != "image" ] ; then
+		echo -e "Apagando imagem vazia...\n";
+		rm -rf $urld;
 	fi
-	if [ $datanow -gt $data -o $horanow -gt $hora ] || [ ! -e $urld ] ; then
+	if [ $datanow -gt $data ] || [ $horanow -gt $hora ] || [ ! -e $urld ] ; then
 		data=$datanow;
 		hora=$horanow;
 		data=$(date +"%Y%m%d");
@@ -135,20 +144,40 @@ while :; do
 			temp=$(tempfile);
 			if [ $service == "bing" ] ; then
 				echo -e "Baixando imagem do bing...\n";
-				wget bing.com -O $temp >/dev/null;
+				wget --quiet bing.com -O $temp >/dev/null;
 				img=$(cat $temp | sed "s/[;,:']/\n/g" | egrep "(.*)az(.*)\.(png|jpg|jpeg)$");
 				url="www.bing.com$img";
-			else
+			elif [ $service == "flickr" ] ; then
 				echo -e "Baixando imagem do flickr...\n";
-				wget www.flickr.com/explore/ -O $temp >/dev/null;
+				wget --quiet www.flickr.com/explore/ -O $temp >/dev/null;
 				img=$(cat $temp | sed "s/[\n\t]//g" | egrep "photo_container(.*)span" | awk -F'"' 'NR>1&&$0=$2' RS='href=');
 				user=$(echo $img | cut -d "/" -f3);
 				img_id=$(echo $img | cut -d "/" -f4);
-				wget "www.flickr.com/photos/"$user"/"$img_id"/sizes/l/in/photostream/" -O $temp >/dev/null;
+				wget --quiet "www.flickr.com/photos/"$user"/"$img_id"/sizes/l/in/photostream/" -O $temp >/dev/null;
 				img=$(cat $temp | sed "s/[\n\t]//g" | sed -n '/'$img_id'/s/.*src="\(.*\)".*/\1/p');
 				url=$(echo $img | cut -d " " -f1);
+			elif [ $service == "nasa" ] ; then
+				echo -e "Baixando imagem da nasa...\n";
+				wget --quiet apod.nasa.gov -O $temp>/dev/null;
+				img=$(cat $temp | sed -n '/a/s/href="\(.*\)".*/\1/p'| grep "image"|sed 's/<a //g');
+				url="apod.nasa.gov/"$img;
+			elif [ $service == "earthscience" ] ; then
+				echo -e "Baixando imagem do Earth Science...\n";
+				wget --quiet http://epod.usra.edu -O $temp>/dev/null;
+				img=$(cat $temp | sed "s/[<]/\n</g" | sed -n '/a/s/href=".*"/\0/p'| grep "/.a/"|cut -d '"' -f2);
+				url=$img;
+			elif [ $service == "nationalgeographic" ] ; then
+				echo -e "Baixando imagem do National Geographic...\n";
+				wget --quiet http://photography.nationalgeographic.com/photography/photo-of-the-day -O $temp>/dev/null;
+				img=$(cat $temp | sed "s/[<]/\n</g" | sed -n '/img/s/src=".*"/\0/p'| grep "media-live"|cut -d '"' -f2);
+				url=$(echo $img | cut -d " " -f1);
+			elif [ $service == "nature" ] ; then
+				echo -e "Baixando imagem da Nature...\n";
+				wget --quiet http://www.naturepicoftheday.com/ -O $temp>/dev/null;
+				img=$(cat $temp | sed "s/[<]/\n</g" | sed -n '/a/s/href=.*/\0/p'| grep "/npods/"|cut -d '=' -f2 | cut -d '>' -f1);
+				url="http://www.naturepicoftheday.com"$img;
 			fi
-			wget $url -O $urld >/dev/null;
+			wget --quiet $url -O $urld >/dev/null;
 		fi
 		sleep 2;
 		wtmk=$(which composite);
@@ -158,6 +187,7 @@ while :; do
 		fi
 		echo -e "Removendo background...\n";
 		background "remove";
+		sleep 5;
 		echo -e "Setando background...\n";
 		background "set" $urld;
 		sleep 10;
@@ -167,6 +197,6 @@ while :; do
 		sleep 10;
 	else
 		echo -e "background OK\nVoltando em 1h...\n";
-		sleep $((60*60));
+		sleep 10;
 	fi
 done
